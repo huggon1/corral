@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Corral TUI demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #080b10;
+      --terminal: #0d1117;
+      --surface: #111820;
+      --surface-alt: #151d26;
+      --selected: #182632;
+      --border: #26313d;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --subtle: #58616d;
+      --accent: #67d4e8;
+      --green: #3ddc97;
+      --yellow: #f2c94c;
+      --red: #ff6b7a;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 1440px;
+      height: 900px;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(103, 212, 232, 0.08), transparent 28%),
+        radial-gradient(circle at 87% 90%, rgba(61, 220, 151, 0.05), transparent 26%),
+        var(--canvas);
+      color: var(--text);
+      font-family: "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+      font-size: 16px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .terminal {
+      width: 1320px;
+      height: 760px;
+      overflow: hidden;
+      border: 1px solid #222b35;
+      border-radius: 14px;
+      background: var(--terminal);
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.025) inset;
+    }
+
+    .window-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 46px;
+      padding: 0 18px;
+      border-bottom: 1px solid #1d2630;
+      background: #10161d;
+    }
+
+    .dots { display: flex; gap: 9px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.red { background: #ff6b67; }
+    .dot.yellow { background: #f4bd4f; }
+    .dot.green { background: #62c654; }
+
+    .window-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--subtle);
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 66px 1fr 54px;
+      height: calc(100% - 46px);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left,
+    .header-right,
+    .project-title,
+    .footer,
+    .section-title,
+    .list-heading {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand {
+      color: var(--text);
+      font-weight: 750;
+      letter-spacing: 0.03em;
+    }
+
+    .tagline,
+    .summary { color: var(--muted); }
+    .tagline { margin-left: 18px; }
+    .summary { margin-right: 34px; }
+    .search { color: var(--accent); }
+
+    .main {
+      display: grid;
+      grid-template-columns: 365px 1fr;
+      min-height: 0;
+    }
+
+    .sidebar {
+      padding: 24px 20px 24px 22px;
+      border-right: 1px solid var(--border);
+    }
+
+    .list-heading {
+      justify-content: space-between;
+      padding: 0 10px 17px 9px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .count {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .project-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      align-items: center;
+      height: 42px;
+      padding: 0 12px 0 15px;
+      border-radius: 4px;
+      color: var(--text);
+    }
+
+    .project-row + .project-row { margin-top: 3px; }
+
+    .project-row.selected {
+      background: var(--selected);
+      font-weight: 700;
+    }
+
+    .project-row.selected::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 3px;
+      border-radius: 3px;
+      background: var(--accent);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--subtle);
+    }
+
+    .status-dot.running { background: var(--green); }
+    .status-dot.crashed { background: var(--red); }
+    .project-meta { color: var(--muted); font-weight: 400; }
+
+    .detail {
+      min-width: 0;
+      padding: 26px 34px 28px;
+    }
+
+    .project-title {
+      min-height: 31px;
+    }
+
+    .project-name {
+      font-size: 18px;
+      font-weight: 750;
+    }
+
+    .status-pill {
+      margin-left: 14px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      background: var(--surface-alt);
+      color: var(--green);
+      font-size: 14px;
+    }
+
+    .open {
+      margin-left: auto;
+      color: var(--accent);
+    }
+
+    .url {
+      margin-top: 2px;
+      color: var(--accent);
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-top: 34px;
+    }
+
+    .label { margin-bottom: 7px; color: var(--muted); }
+    .value { color: var(--text); white-space: nowrap; }
+
+    .logs {
+      height: 254px;
+      margin-top: 31px;
+      padding: 17px 22px;
+      border: 1px solid rgba(38, 49, 61, 0.45);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .section-title { margin-bottom: 15px; font-weight: 700; }
+    .live { margin-left: 12px; color: var(--muted); font-weight: 400; }
+    .log-line { display: grid; grid-template-columns: 92px 66px 1fr; color: #aab3be; }
+    .log-line + .log-line { margin-top: 8px; }
+    .log-time { color: var(--subtle); }
+    .log-source { color: var(--accent); }
+    .log-ok { color: var(--green); }
+
+    .footer {
+      gap: 22px;
+      padding: 0 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .shortcut { display: flex; align-items: center; gap: 7px; }
+
+    kbd {
+      min-width: 27px;
+      padding: 2px 7px;
+      border: 0;
+      border-radius: 4px;
+      background: var(--surface-alt);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      text-align: center;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+  </style>
+</head>
+<body>
+  <main class="terminal" aria-label="Sanitized Corral terminal interface demonstration">
+    <div class="window-bar">
+      <div class="dots" aria-hidden="true">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <div class="window-title">corral</div>
+    </div>
+
+    <section class="app">
+      <header class="header">
+        <div class="header-left">
+          <span class="brand">CORRAL</span>
+          <span class="tagline">Local projects</span>
+        </div>
+        <div class="header-right">
+          <span class="summary">4 projects&nbsp; · &nbsp;1 running</span>
+          <span class="search">/ Search</span>
+        </div>
+      </header>
+
+      <div class="main">
+        <aside class="sidebar">
+          <div class="list-heading">
+            <span>Projects</span>
+            <span class="count">4</span>
+          </div>
+
+          <div class="project-row selected">
+            <span class="status-dot running"></span>
+            <span>atlas-web</span>
+            <span class="project-meta">:42117</span>
+          </div>
+          <div class="project-row">
+            <span class="status-dot"></span>
+            <span>notes-api</span>
+            <span class="project-meta">Stopped</span>
+          </div>
+          <div class="project-row">
+            <span class="status-dot"></span>
+            <span>design-system</span>
+            <span class="project-meta">Stopped</span>
+          </div>
+          <div class="project-row">
+            <span class="status-dot crashed"></span>
+            <span>docs-site</span>
+            <span class="project-meta">Crashed</span>
+          </div>
+        </aside>
+
+        <section class="detail">
+          <div class="project-title">
+            <span class="project-name">atlas-web</span>
+            <span class="status-pill">● Running</span>
+            <span class="open">o&nbsp; Open ↗</span>
+          </div>
+          <div class="url">http://localhost:42117</div>
+
+          <div class="fields">
+            <div class="field">
+              <div class="label">Command</div>
+              <div class="value">pnpm dev -- --host 127.0.0.1 --port {port}</div>
+            </div>
+            <div class="field">
+              <div class="label">Directory</div>
+              <div class="value">~/Developer/atlas-web</div>
+            </div>
+          </div>
+
+          <div class="logs">
+            <div class="section-title">Logs <span class="live">Live</span></div>
+            <div class="log-line">
+              <span class="log-time">10:42:18</span><span class="log-source">vite</span><span>starting development server…</span>
+            </div>
+            <div class="log-line">
+              <span class="log-time">10:42:18</span><span class="log-source">vite</span><span class="log-ok">ready in 412 ms</span>
+            </div>
+            <div class="log-line">
+              <span class="log-time">10:42:18</span><span class="log-source">local</span><span>http://127.0.0.1:42117/</span>
+            </div>
+            <div class="log-line">
+              <span class="log-time">10:42:21</span><span class="log-source">api</span><span class="log-ok">health check passed</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="footer">
+        <span class="shortcut"><kbd>↑↓/jk</kbd><span>Move</span></span>
+        <span class="shortcut"><kbd>↵</kbd><span>Open/Start</span></span>
+        <span class="shortcut"><kbd>Space</kbd><span>Reorder</span></span>
+        <span class="shortcut"><kbd>d</kbd><span>Remove</span></span>
+        <span class="shortcut"><kbd>l</kbd><span>Logs</span></span>
+        <span class="shortcut"><kbd>/</kbd><span>Search</span></span>
+        <span class="shortcut"><kbd>q</kbd><span>Quit</span></span>
+      </footer>
+    </section>
+  </main>
+</body>
+</html>
