@@ -462,14 +462,14 @@ func footerStyle(width int) lipgloss.Style {
 
 func renderHelp(width int) string {
 	items := []struct{ key, action string }{
-		{"↑↓/jk", "Move"}, {"↵", "Open/Start"}, {"Space", "Reorder"}, {"d", "Remove"}, {"l", "Logs"}, {"/", "Search"}, {"q", "Quit"},
+		{"↑↓/jk", "Move"}, {"↵", "Open/Start"}, {"x", "Stop"}, {"Space", "Reorder"}, {"d", "Remove"}, {"l", "Logs"}, {"/", "Search"}, {"q", "Quit"},
 	}
 	separator := "   "
 	if width < 100 {
-		items = []struct{ key, action string }{{"↑↓/jk", "Move"}, {"↵", "Open"}, {"Space", "Order"}, {"d", "Remove"}, {"q", "Quit"}}
+		items = []struct{ key, action string }{{"↑↓/jk", "Move"}, {"↵", "Open"}, {"x", "Stop"}, {"Space", "Order"}, {"d", "Remove"}, {"q", "Quit"}}
 	}
 	if width < 65 {
-		items = []struct{ key, action string }{{"↵", "Open"}, {"Space", "Order"}, {"d", "Remove"}, {"q", "Quit"}}
+		items = []struct{ key, action string }{{"↵", "Open"}, {"x", "Stop"}, {"d", "Remove"}, {"q", "Quit"}}
 		separator = "  "
 	}
 	parts := make([]string, 0, len(items))
