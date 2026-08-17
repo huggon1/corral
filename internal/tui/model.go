@@ -11,7 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/huggon1/corral/internal/app"
+	"github.com/huggon1/localhost-manager/internal/app"
 )
 
 var (
@@ -297,7 +297,7 @@ func (m *Model) View() tea.View {
 	content := m.render()
 	view := tea.NewView(content)
 	view.AltScreen = true
-	view.WindowTitle = "Corral"
+	view.WindowTitle = "localhost-manager"
 	return view
 }
 
@@ -327,7 +327,7 @@ func (m *Model) renderHeader(width int) string {
 			running++
 		}
 	}
-	brand := lipgloss.NewStyle().Bold(true).Foreground(text).Render("CORRAL")
+	brand := lipgloss.NewStyle().Bold(true).Foreground(text).Render("LOCALHOST-MANAGER")
 	tagline := lipgloss.NewStyle().Foreground(muted).Render("Local projects")
 	summary := lipgloss.NewStyle().Foreground(muted).Render(fmt.Sprintf("%d projects  ·  %d running", len(m.states), running))
 	search := "/ Search"

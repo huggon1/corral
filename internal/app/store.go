@@ -52,6 +52,26 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	return store, nil
 }
 
+// ImportLegacy copies the compatible Corral registry into an empty LHM registry.
+func (s *SQLiteStore) ImportLegacy(path string) error {
+	if _, err := s.db.Exec(`ATTACH DATABASE ? AS legacy`, path); err != nil {
+		return err
+	}
+	defer s.db.Exec(`DETACH DATABASE legacy`)
+	if _, err := s.db.Exec(`
+		INSERT OR IGNORE INTO projects (id, name, path, command_json, url_template, ready_url_template, env_json, last_port, position, created_at, updated_at)
+		SELECT id, name, path, command_json, url_template, ready_url_template, env_json, last_port, position, created_at, updated_at
+		FROM legacy.projects
+	`); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(`
+		INSERT OR IGNORE INTO runs (project_id, pid, port, log_path, started_at)
+		SELECT project_id, pid, port, log_path, started_at FROM legacy.runs
+	`)
+	return err
+}
+
 func (s *SQLiteStore) migrate() error {
 	_, err := s.db.Exec(`
 		PRAGMA journal_mode = WAL;

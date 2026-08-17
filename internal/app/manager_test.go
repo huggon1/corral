@@ -15,7 +15,7 @@ import (
 )
 
 func TestHelperServer(t *testing.T) {
-	if os.Getenv("CORRAL_HELPER_SERVER") != "1" {
+	if os.Getenv("LHM_HELPER_SERVER") != "1" {
 		return
 	}
 	args := os.Args
@@ -25,7 +25,7 @@ func TestHelperServer(t *testing.T) {
 		os.Exit(2)
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
-	if readyPort := os.Getenv("CORRAL_HELPER_READY_PORT"); readyPort != "" {
+	if readyPort := os.Getenv("LHM_HELPER_READY_PORT"); readyPort != "" {
 		readyListener, err := net.Listen("tcp", "127.0.0.1:"+readyPort)
 		if err != nil {
 			os.Exit(3)
@@ -36,9 +36,64 @@ func TestHelperServer(t *testing.T) {
 	os.Exit(0)
 }
 
+func TestOpenManagerMigratesLegacyCorralData(t *testing.T) {
+	config := t.TempDir()
+	previousUserConfigDir := userConfigDir
+	userConfigDir = func() (string, error) { return config, nil }
+	t.Cleanup(func() { userConfigDir = previousUserConfigDir })
+	t.Setenv("LHM_HOME", "")
+
+	legacyHome := filepath.Join(config, "corral")
+	legacyPaths := Paths{Home: legacyHome, Database: filepath.Join(legacyHome, "corral.db"), Logs: filepath.Join(legacyHome, "logs")}
+	legacyStore, err := OpenSQLite(legacyPaths.Database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyManager := NewManager(legacyStore, legacyPaths)
+	project, err := legacyManager.Upsert(context.Background(), ProjectSpec{
+		Name:        "legacy-project",
+		Path:        t.TempDir(),
+		Command:     []string{"npm", "run", "dev"},
+		URLTemplate: "http://127.0.0.1:4317",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(legacyPaths.Logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyLog := filepath.Join(legacyPaths.Logs, project.ID+".log")
+	if err := os.WriteFile(legacyLog, []byte("legacy log\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacyManager.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	manager, err := OpenManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer manager.Close()
+	states, err := manager.Projects(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(states) != 1 || states[0].Project.ID != project.ID {
+		t.Fatalf("migrated projects = %#v", states)
+	}
+	contents, err := os.ReadFile(filepath.Join(manager.paths.Logs, project.ID+".log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "legacy log\n" {
+		t.Fatalf("migrated log = %q", contents)
+	}
+}
+
 func TestManagerLifecycle(t *testing.T) {
 	home := t.TempDir()
-	paths := Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +106,7 @@ func TestManagerLifecycle(t *testing.T) {
 		Path:        t.TempDir(),
 		Command:     []string{os.Args[0], "-test.run=TestHelperServer", "--", "{port}"},
 		URLTemplate: "http://localhost:{port}",
-		Env:         map[string]string{"CORRAL_HELPER_SERVER": "1"},
+		Env:         map[string]string{"LHM_HELPER_SERVER": "1"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +139,7 @@ func TestManagerLifecycle(t *testing.T) {
 
 func TestManagerLifecycleWithFixedURLAndSeparateReadyURL(t *testing.T) {
 	home := t.TempDir()
-	paths := Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
@@ -104,8 +159,8 @@ func TestManagerLifecycleWithFixedURLAndSeparateReadyURL(t *testing.T) {
 		URLTemplate:      "http://127.0.0.1:" + strconv.Itoa(publicPort) + "/app",
 		ReadyURLTemplate: "http://127.0.0.1:" + strconv.Itoa(readyPort) + "/health",
 		Env: map[string]string{
-			"CORRAL_HELPER_SERVER":     "1",
-			"CORRAL_HELPER_READY_PORT": strconv.Itoa(readyPort),
+			"LHM_HELPER_SERVER":     "1",
+			"LHM_HELPER_READY_PORT": strconv.Itoa(readyPort),
 		},
 	})
 	if err != nil {
@@ -149,7 +204,7 @@ func TestManagerRejectsFixedReadyURLAlreadyInUse(t *testing.T) {
 	defer server.Close()
 
 	home := t.TempDir()
-	paths := Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +227,7 @@ func TestManagerRejectsFixedReadyURLAlreadyInUse(t *testing.T) {
 
 func TestManagerClearsLastPortWhenProjectBecomesFixed(t *testing.T) {
 	home := t.TempDir()
-	paths := Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +258,7 @@ func TestManagerClearsLastPortWhenProjectBecomesFixed(t *testing.T) {
 
 func TestManagerMovesProjectsAndPersistsOrder(t *testing.T) {
 	home := t.TempDir()
-	paths := Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
