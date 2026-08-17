@@ -70,6 +70,9 @@ func TestFooterDoesNotWrap(t *testing.T) {
 		if got := lipgloss.Width(footer); got > width {
 			t.Errorf("footer width at width %d = %d", width, got)
 		}
+		if !strings.Contains(footer, "Stop") {
+			t.Errorf("footer at width %d is missing the stop shortcut: %q", width, footer)
+		}
 	}
 }
 
