@@ -9,15 +9,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/huggon1/corral/internal/app"
-	"github.com/huggon1/corral/internal/tui"
+	"github.com/huggon1/localhost-manager/internal/app"
+	"github.com/huggon1/localhost-manager/internal/tui"
 )
 
 const version = "0.1.0"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "corral:", err)
+		fmt.Fprintln(os.Stderr, "lhm:", err)
 		os.Exit(1)
 	}
 }
@@ -50,13 +50,13 @@ func run(args []string) error {
 	case "remove", "rm":
 		return remove(ctx, manager, args[1:])
 	case "version", "--version", "-v":
-		fmt.Println("corral", version)
+		fmt.Println("lhm", version)
 		return nil
 	case "help", "--help", "-h":
 		printHelp()
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q; run corral help", args[0])
+		return fmt.Errorf("unknown command %q; run lhm help", args[0])
 	}
 }
 
@@ -124,7 +124,7 @@ func list(ctx context.Context, manager *app.Manager, args []string) error {
 
 func status(ctx context.Context, manager *app.Manager, args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage: corral status <project>")
+		return errors.New("usage: lhm status <project>")
 	}
 	state, err := manager.State(ctx, args[0])
 	if err != nil {
@@ -135,7 +135,7 @@ func status(ctx context.Context, manager *app.Manager, args []string) error {
 
 func start(ctx context.Context, manager *app.Manager, args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage: corral start <project>")
+		return errors.New("usage: lhm start <project>")
 	}
 	state, err := manager.Start(ctx, args[0])
 	if err != nil {
@@ -147,7 +147,7 @@ func start(ctx context.Context, manager *app.Manager, args []string) error {
 
 func stop(ctx context.Context, manager *app.Manager, args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage: corral stop <project>")
+		return errors.New("usage: lhm stop <project>")
 	}
 	if err := manager.Stop(ctx, args[0]); err != nil {
 		return err
@@ -158,7 +158,7 @@ func stop(ctx context.Context, manager *app.Manager, args []string) error {
 
 func restart(ctx context.Context, manager *app.Manager, args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage: corral restart <project>")
+		return errors.New("usage: lhm restart <project>")
 	}
 	state, err := manager.Restart(ctx, args[0])
 	if err != nil {
@@ -175,7 +175,7 @@ func logs(ctx context.Context, manager *app.Manager, args []string) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return errors.New("usage: corral logs [-n lines] <project>")
+		return errors.New("usage: lhm logs [-n lines] <project>")
 	}
 	output, err := manager.Logs(ctx, flags.Arg(0), *lines)
 	if err != nil {
@@ -187,7 +187,7 @@ func logs(ctx context.Context, manager *app.Manager, args []string) error {
 
 func remove(ctx context.Context, manager *app.Manager, args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage: corral remove <project>")
+		return errors.New("usage: lhm remove <project>")
 	}
 	if err := manager.Remove(ctx, args[0]); err != nil {
 		return err
@@ -203,18 +203,18 @@ func printJSON(value any) error {
 }
 
 func printHelp() {
-	fmt.Print(`corral — round up and launch local development projects
+	fmt.Print(`localhost-manager — round up and launch local development projects
 
 Usage:
-  corral                                      Open the TUI
-  corral register --path DIR --url URL [options] -- COMMAND ...
-  corral list [--json]
-  corral start|stop|restart|status <project>
-  corral logs [-n lines] <project>
-  corral remove <project>
+  lhm                                         Open the TUI
+  lhm register --path DIR --url URL [options] -- COMMAND ...
+  lhm list [--json]
+  lhm start|stop|restart|status <project>
+  lhm logs [-n lines] <project>
+  lhm remove <project>
 
 Register example:
-  corral register --path . --name web --url http://localhost:3000 -- npm run dev
-  corral register --path . --name web -- npm run dev -- --port {port}
+  lhm register --path . --name web --url http://localhost:3000 -- npm run dev
+  lhm register --path . --name web -- npm run dev -- --port {port}
 `)
 }

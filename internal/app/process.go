@@ -34,8 +34,8 @@ func startProcess(cwd string, args []string, env map[string]string, logPath stri
 		return 0, fmt.Errorf("start %s: %w", strings.Join(args, " "), err)
 	}
 	pid := cmd.Process.Pid
-	// Reap the process while Corral is alive. Because it owns a separate session,
-	// it is re-parented and keeps running if this Corral invocation exits first.
+	// Reap the process while localhost-manager is alive. Because it owns a separate session,
+	// it is re-parented and keeps running if this localhost-manager invocation exits first.
 	go func() { _ = cmd.Wait() }()
 	return pid, nil
 }

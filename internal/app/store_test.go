@@ -9,7 +9,7 @@ import (
 )
 
 func TestSQLiteStoreUpsertIsIdempotent(t *testing.T) {
-	store, err := OpenSQLite(filepath.Join(t.TempDir(), "corral.db"))
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "lhm.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestSQLiteStoreUpsertIsIdempotent(t *testing.T) {
 }
 
 func TestSQLiteStoreMigratesExistingProjectsToReadyURL(t *testing.T) {
-	databasePath := filepath.Join(t.TempDir(), "corral.db")
+	databasePath := filepath.Join(t.TempDir(), "lhm.db")
 	legacy, err := sql.Open("sqlite", databasePath)
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestSQLiteStoreMigratesExistingProjectsToReadyURL(t *testing.T) {
 }
 
 func TestSQLiteStoreRejectsAmbiguousNameLookup(t *testing.T) {
-	store, err := OpenSQLite(filepath.Join(t.TempDir(), "corral.db"))
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "lhm.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

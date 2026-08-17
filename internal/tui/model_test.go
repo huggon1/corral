@@ -9,12 +9,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/huggon1/corral/internal/app"
+	"github.com/huggon1/localhost-manager/internal/app"
 )
 
 func TestRenderFitsTerminal(t *testing.T) {
 	home := t.TempDir()
-	paths := app.Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := app.Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := app.OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestRenderUsesTextBrandAndDeleteConfirmation(t *testing.T) {
 
 func TestDeleteRequiresConfirmation(t *testing.T) {
 	home := t.TempDir()
-	paths := app.Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := app.Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := app.OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +144,7 @@ func TestDeleteRequiresConfirmation(t *testing.T) {
 
 func TestReorderModeMovesSelectedProjectWithVimKey(t *testing.T) {
 	home := t.TempDir()
-	paths := app.Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}
+	paths := app.Paths{Home: home, Database: filepath.Join(home, "lhm.db"), Logs: filepath.Join(home, "logs")}
 	store, err := app.OpenSQLite(paths.Database)
 	if err != nil {
 		t.Fatal(err)

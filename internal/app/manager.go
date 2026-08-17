@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +15,8 @@ import (
 	"time"
 )
 
+var userConfigDir = os.UserConfigDir
+
 type Paths struct {
 	Home     string
 	Database string
@@ -21,19 +24,31 @@ type Paths struct {
 }
 
 func DefaultPaths() (Paths, error) {
-	home := os.Getenv("CORRAL_HOME")
+	home := os.Getenv("LHM_HOME")
 	if home == "" {
-		config, err := os.UserConfigDir()
+		config, err := userConfigDir()
 		if err != nil {
 			return Paths{}, fmt.Errorf("find user config directory: %w", err)
 		}
-		home = filepath.Join(config, "corral")
+		home = filepath.Join(config, "localhost-manager")
 	}
 	abs, err := filepath.Abs(home)
 	if err != nil {
 		return Paths{}, err
 	}
-	return Paths{Home: abs, Database: filepath.Join(abs, "corral.db"), Logs: filepath.Join(abs, "logs")}, nil
+	return Paths{Home: abs, Database: filepath.Join(abs, "lhm.db"), Logs: filepath.Join(abs, "logs")}, nil
+}
+
+func legacyPaths() (Paths, bool, error) {
+	if os.Getenv("LHM_HOME") != "" {
+		return Paths{}, false, nil
+	}
+	config, err := userConfigDir()
+	if err != nil {
+		return Paths{}, false, fmt.Errorf("find user config directory: %w", err)
+	}
+	home := filepath.Join(config, "corral")
+	return Paths{Home: home, Database: filepath.Join(home, "corral.db"), Logs: filepath.Join(home, "logs")}, true, nil
 }
 
 type Manager struct {
@@ -51,11 +66,105 @@ func OpenManager() (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
+	databaseExists, err := fileExists(paths.Database)
+	if err != nil {
+		return nil, err
+	}
 	store, err := OpenSQLite(paths.Database)
 	if err != nil {
 		return nil, err
 	}
+	if !databaseExists {
+		legacy, shouldMigrate, err := legacyPaths()
+		if err != nil {
+			_ = store.Close()
+			return nil, err
+		}
+		if shouldMigrate {
+			legacyExists, err := fileExists(legacy.Database)
+			if err != nil {
+				_ = store.Close()
+				return nil, err
+			}
+			if legacyExists {
+				if err := store.ImportLegacy(legacy.Database); err != nil {
+					_ = store.Close()
+					return nil, fmt.Errorf("migrate legacy Corral registry: %w", err)
+				}
+				if err := copyDirectory(legacy.Logs, paths.Logs); err != nil {
+					_ = store.Close()
+					return nil, fmt.Errorf("migrate legacy Corral logs: %w", err)
+				}
+			}
+		}
+	}
 	return NewManager(store, paths), nil
+}
+
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
+func copyDirectory(source, destination string) error {
+	entries, err := os.ReadDir(source)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(destination, 0o755); err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		sourcePath := filepath.Join(source, entry.Name())
+		destinationPath := filepath.Join(destination, entry.Name())
+		if entry.IsDir() {
+			if err := copyDirectory(sourcePath, destinationPath); err != nil {
+				return err
+			}
+			continue
+		}
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		exists, err := fileExists(destinationPath)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		if err := copyFile(sourcePath, destinationPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFile(source, destination string) error {
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 func (m *Manager) Close() error { return m.store.Close() }

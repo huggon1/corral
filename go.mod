@@ -1,4 +1,4 @@
-module github.com/huggon1/corral
+module github.com/huggon1/localhost-manager
 
 go 1.25.0
 
